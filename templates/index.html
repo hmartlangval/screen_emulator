@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebSocket Image Display</title>
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .column {
+            padding: 20px;
+        }
+
+        #image-container {
+            flex: 6;
+            text-align: center;
+        }
+
+        #image-container img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        #controls {
+            flex: 4;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid green;
+            padding: 0;
+        }
+
+        #controls-top {
+            display: flex;
+        }
+
+        #message-text {
+            flex: 1;
+            padding: 5px;
+        }
+
+        #send-button {
+            padding: 5px 10px;
+            margin-left: 5px;
+        }
+
+        #analysis-area {
+            flex: 1;
+            border: 2px solid red;
+            resize: none;
+            padding: 5px;
+        }
+
+        #navigation-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            /* Allow buttons to wrap to the next line */
+            justify-content: center;
+            /* Center the buttons */
+            padding: 10px;
+            /* Add some padding around the buttons */
+        }
+
+        button {
+            margin: 5px;
+            /* Add some margin between buttons */
+            padding: 8px 16px;
+            /* Adjust padding as needed */
+            cursor: pointer;
+            /* Indicate that the buttons are clickable */
+            border-radius: 4px;
+            /* border: 1px solid #dedede; */
+            border: 1px solid #222;
+            font-weight: 600;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+
+    <div class="column" id="image-container">
+        <img id="displayed-image" src="" alt="Displayed Image" style="height: 70%; width: 90%; border-radius: 0px; border: 2px solid #000; box-sizing: border-box;">
+        <div id="navigation-buttons"></div>
+        <button id="btn-restart">Restart</button>
+    </div>
+
+    <div class="column" id="controls">
+        <div id="controls-top">
+            <input type="text" id="message-text">
+            <button id="send-button">Send</button>
+        </div>
+        <textarea id="analysis-area" readonly></textarea>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            let websocket = new WebSocket('ws://localhost:8765');
+
+            websocket.onopen = function () {
+                console.log('Connected to WebSocket server');
+            };
+
+            websocket.onmessage = function (event) {
+                console.log('message received: ', JSON.parse(event.data));
+                $('#navigation-buttons').empty();
+
+                try {
+                    let data = JSON.parse(event.data);
+                    if (data.image_url) {
+                        $('#displayed-image').attr('src', data.image_url);
+                    }
+                    if (data.analysis_result) {
+                        $('#analysis-area').val(data.analysis_result);
+                    }
+                    if (data.navigations) {
+                        // Clear existing buttons
+                        $('#navigation-buttons').empty();
+
+                        data.navigations.forEach(key => {
+                            let button = $('<button>').text(key);
+                            button.click(function () {
+                                let message = key; // Send the key as the message
+                                websocket.send(message);
+                                // $('#message-text').val(''); // Optionally clear the input
+                            });
+                            $('#navigation-buttons').append(button);
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error parsing JSON:", error);
+                }
+            };
+
+            websocket.onclose = function () {
+                console.log('Disconnected from WebSocket server');
+            };
+
+            websocket.onerror = function (error) {
+                console.error('WebSocket error:', error);
+            };
+
+            $('#send-button').click(function () {
+                let message = $('#message-text').val();
+                websocket.send(message);
+                $('#message-text').val('');
+            });
+
+            $('#btn-restart').click(function () {
+                websocket.send("start");
+            });
+        });
+    </script>
+
+</body>
+
+</html>
